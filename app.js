@@ -1,49 +1,33 @@
 require('dotenv').config({path: '.env'})
 
+const initDB = require('./src/init/initDB')
+const initServer = require('./src/init/initServer')
+const initRoute = require('./src/init/initRoute')
+
+const cors = require('cors')
+const morgan = require('morgan')
+
+const noMatchMiddleware = require('./src/middleware/404')
+const errorMiddleware = require('./src/middleware/error')
+
 const express = require("express")
-const { Sequelize } = require("sequelize")
-
-const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERNAME, process.env.DB_PASSWORD, {
-  dialect: process.env.DB_DIALECT,
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  logging: false
-})
-
-const dbConnection = async () => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      await sequelize.authenticate() // 测试数据库是否连接成功
-      resolve()
-      console.log('Connection mysql has been established successfully.')
-    } catch (error) {
-      reject(error)
-      console.error('Unable to connect to the database:', error)
-    }
-  })
-}
-
 const app = express()
 
-const initServer = async () => {
-  return new Promise((resolve, reject) => {
-    const PORT = process.env.PORT || 8080
-    app
-    .listen(PORT, () => {
-      resolve()
-      console.log(`app listening on port ${PORT}`)
-    })
-    .on('error', (error) => {
-      reject(error)
-    })
-  })
-}
+initRoute(app)
+
+// 中间件
+app.use(cors({ credentials: true, origin: true })) // 跨域
+app.use(express.json()) // 解析
+app.use(morgan('tiny')) // http日志
+
+app.use(noMatchMiddleware) // 404
+app.use(errorMiddleware) // 错误处理
 
 const main = async () => {
-  // 启动数据库服务
-  await dbConnection()
+  // 初始化数据库
+  await initDB()
   // 启动node服务
-  await initServer()
+  await initServer(app)
 }
 
 main()
